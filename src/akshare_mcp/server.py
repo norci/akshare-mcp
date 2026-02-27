@@ -12,6 +12,8 @@ from datetime import datetime
 from typing import Any, Callable, get_type_hints
 import types
 
+import os
+
 import akshare as ak
 from fastmcp import FastMCP
 from pydantic import Field
@@ -21,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP(name="akshare-mcp")
 
-CACHE_FILE = "/tmp/akshare_tools_cache.json"
+CACHE_FILE = os.environ.get("AKSHARE_MCP_CACHE", "/tmp/akshare_tools_cache.json")
 
 
 def get_akshare_tools() -> dict[str, dict]:
