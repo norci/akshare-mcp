@@ -1,18 +1,22 @@
 """Tests for akshare-mcp MCP server using mcporter."""
 
+import os
 import subprocess
 import json
 
 import pytest
 
 
-# The MCP server command
-MCP_SERVER_CMD = "uvx --from /home/josephx/code/akshare-mcp akshare-mcp"
+# Get project root directory (parent of tests directory)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# The MCP server command - use environment variable if set, otherwise construct from project root
+MCP_SERVER_CMD = os.environ.get("MCP_SERVER_CMD", f"uvx --from {PROJECT_ROOT} akshare-mcp")
 
 
 def mcporter_call(tool_name: str, *args: str) -> subprocess.CompletedProcess:
     """Helper to call mcporter with the MCP server."""
-    cmd = ["mcporter", "call", "--stdio", MCP_SERVER_CMD, tool_name]
+    cmd = ["pnpx", "mcporter", "call", "--stdio", MCP_SERVER_CMD, tool_name]
     cmd.extend(args)
     return subprocess.run(
         cmd,
