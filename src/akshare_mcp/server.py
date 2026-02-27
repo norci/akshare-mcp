@@ -10,6 +10,7 @@ import json
 import logging
 from datetime import datetime
 from typing import Any, Callable, get_type_hints
+import types
 
 import akshare as ak
 from fastmcp import FastMCP
@@ -96,19 +97,46 @@ TOOL_DEFS = get_akshare_tools()
 GENERATED_TOOLS = {}
 
 
-def create_tool_func(func_name: str, original_func: Callable) -> Callable:
+def create_tool_func(func_name: str, original_func: Callable, param_names: list[str]) -> Callable:
     """Create a tool function with proper signature from original akshare function."""
 
-    def tool_func(**kwargs) -> str:
-        try:
-            result = original_func(**kwargs)
-            if hasattr(result, "to_json"):
-                return result.to_json(orient="records", date_format="iso") or "[]"
-            return json.dumps(result, default=str, ensure_ascii=False)
-        except Exception as e:
-            return json.dumps({"error": str(e), "function": func_name}, ensure_ascii=False)
+    # Build the function signature with explicit parameters
+    if not param_names:
+        # No parameters - simple case
+        exec_code = f"""def {func_name}():
+    '''Tool for calling akshare.{func_name}'''
+    try:
+        result = original_func()
+        if hasattr(result, "to_json"):
+            return result.to_json(orient="records", date_format="iso") or "[]"
+        return json.dumps(result, default=str, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({{"error": str(e), "function": "{func_name}"}}, ensure_ascii=False)
+"""
+    else:
+        # Build parameter list with defaults
+        param_list = []
+        for pname in param_names:
+            param_list.append(pname)
+        param_str = ", ".join(param_list)
 
-    tool_func.__name__ = func_name
+        exec_code = f"""def {func_name}({param_str}):
+    '''Tool for calling akshare.{func_name}'''
+    try:
+        result = original_func({param_str})
+        if hasattr(result, "to_json"):
+            return result.to_json(orient="records", date_format="iso") or "[]"
+        return json.dumps(result, default=str, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({{"error": str(e), "function": "{func_name}"}}, ensure_ascii=False)
+"""
+
+    # Create the function dynamically
+    local_ns = {"original_func": original_func, "json": json, "func_name": func_name}
+    exec(exec_code, local_ns)
+    tool_func = local_ns[func_name]
+
+    # Set the docstring from TOOL_DEFS if available
     tool_func.__doc__ = TOOL_DEFS.get(func_name, {}).get("full_doc", f"Call akshare.{func_name}")
 
     return tool_func
@@ -163,14 +191,11 @@ def register_all_tools():
                     sig_params[param_name] = default
                 annotations[param_name] = type_hint
 
-            def make_wrapper(fn, pnames):
-                def wrapper(**kwargs):
-                    filtered = {k: v for k, v in kwargs.items() if k in pnames}
-                    return create_tool_func(fn.__name__, fn)(**filtered)
+            # Get the list of parameter names for the function
+            param_names = list(params.keys())
 
-                return wrapper
-
-            tool_func = create_tool_func(func_name, func)
+            # Create the tool function with explicit parameters
+            tool_func = create_tool_func(func_name, func, param_names)
 
             # Use original func_name as tool name, not with replaced underscores
             # The MCP framework will handle parameter exposure automatically
