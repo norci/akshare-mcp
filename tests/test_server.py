@@ -45,7 +45,7 @@ class TestCreateToolFunc:
         def sample_func():
             return {"data": "test"}
 
-        tool_func = create_tool_func("sample_func", sample_func, [])
+        tool_func = create_tool_func("sample_func", sample_func, {"params": {}})
 
         assert callable(tool_func)
 
@@ -56,7 +56,7 @@ class TestCreateToolFunc:
         def sample_func():
             return {"data": "test"}
 
-        tool_func = create_tool_func("sample_func", sample_func, [])
+        tool_func = create_tool_func("sample_func", sample_func, {"params": {}})
         result = tool_func()
 
         assert json.loads(result) == {"data": "test"}
@@ -68,7 +68,16 @@ class TestCreateToolFunc:
         def sample_func(symbol="000001", period="daily"):
             return {"symbol": symbol, "period": period}
 
-        tool_func = create_tool_func("sample_func", sample_func, ["symbol", "period"])
+        tool_func = create_tool_func(
+            "sample_func",
+            sample_func,
+            {
+                "params": {
+                    "symbol": {"type": "string", "default": "000001"},
+                    "period": {"type": "string", "default": "daily"},
+                }
+            },
+        )
         result = tool_func(symbol="600000", period="weekly")
 
         data = json.loads(result)
@@ -103,7 +112,7 @@ class TestErrorHandling:
         def nonexistent():
             raise ValueError("API not found")
 
-        tool_func = create_tool_func("nonexistent", nonexistent, [])
+        tool_func = create_tool_func("nonexistent", nonexistent, {"params": {}})
         result = tool_func()
 
         data = json.loads(result)

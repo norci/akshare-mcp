@@ -97,13 +97,16 @@ TOOL_DEFS = get_akshare_tools()
 GENERATED_TOOLS = {}
 
 
-def create_tool_func(func_name: str, original_func: Callable, param_names: list[str]) -> Callable:
+def create_tool_func(func_name: str, original_func: Callable, param_info: dict) -> Callable:
     """Create a tool function with proper signature from original akshare function."""
 
+    # Get parameter details from TOOL_DEFS
+    params = param_info.get("params", {})
+
     # Build the function signature with explicit parameters
-    if not param_names:
+    if not params:
         # No parameters - simple case
-        exec_code = f"""def {func_name}():
+        exec_code = """def {func_name}():
     '''Tool for calling akshare.{func_name}'''
     try:
         result = original_func()
@@ -111,25 +114,41 @@ def create_tool_func(func_name: str, original_func: Callable, param_names: list[
             return result.to_json(orient="records", date_format="iso") or "[]"
         return json.dumps(result, default=str, ensure_ascii=False)
     except Exception as e:
-        return json.dumps({{"error": str(e), "function": "{func_name}"}}, ensure_ascii=False)
+        return json.dumps({"error": str(e), "function": "{func_name}"}, ensure_ascii=False)
 """
+        exec_code = exec_code.replace("{func_name}", func_name)
     else:
         # Build parameter list with defaults
         param_list = []
-        for pname in param_names:
-            param_list.append(pname)
+        for pname, pinfo in params.items():
+            default = pinfo.get("default")
+            is_required = pinfo.get("required", True)
+
+            if default is None or default == inspect.Parameter.empty or is_required:
+                # Required param - no default
+                param_list.append(pname)
+            else:
+                # Optional param - add default
+                if isinstance(default, str):
+                    param_list.append(f'{pname}="{default}"')
+                else:
+                    param_list.append(f"{pname}={default}")
+
         param_str = ", ".join(param_list)
 
+        # Build the function - call original_func with kwargs, filter None
         exec_code = f"""def {func_name}({param_str}):
     '''Tool for calling akshare.{func_name}'''
     try:
-        result = original_func({param_str})
+        kwargs = {{k: v for k, v in locals().items() if k != 'original_func' and v is not None}}
+        result = original_func(**kwargs)
         if hasattr(result, "to_json"):
             return result.to_json(orient="records", date_format="iso") or "[]"
         return json.dumps(result, default=str, ensure_ascii=False)
     except Exception as e:
         return json.dumps({{"error": str(e), "function": "{func_name}"}}, ensure_ascii=False)
 """
+        exec_code = exec_code.replace("{func_name}", func_name)
 
     # Create the function dynamically
     local_ns = {"original_func": original_func, "json": json, "func_name": func_name}
@@ -191,11 +210,11 @@ def register_all_tools():
                     sig_params[param_name] = default
                 annotations[param_name] = type_hint
 
-            # Get the list of parameter names for the function
-            param_names = list(params.keys())
+            # Get the param info for the function
+            param_info = tool_def
 
             # Create the tool function with explicit parameters
-            tool_func = create_tool_func(func_name, func, param_names)
+            tool_func = create_tool_func(func_name, func, param_info)
 
             # Use original func_name as tool name, not with replaced underscores
             # The MCP framework will handle parameter exposure automatically
