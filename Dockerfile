@@ -1,5 +1,9 @@
 FROM python:3.10-slim
 
+# Use Aliyun mirrors for faster downloads in China
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources \
+    || sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
