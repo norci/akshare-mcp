@@ -32,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-akshare-mcp = "akshare_mcp.server:mcp"
+akshare-mcp = "akshare_mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]

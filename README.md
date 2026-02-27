@@ -34,9 +34,14 @@
 ### Using uv (Recommended)
 
 ```bash
+# Local development (from project directory)
+uvx --from .
+
+# Or install and run
 uv venv .venv
 source .venv/bin/activate
-pip install akshare-mcp
+uv pip install -e .
+akshare-mcp
 ```
 
 ### Using pip

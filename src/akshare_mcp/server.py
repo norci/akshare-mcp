@@ -284,9 +284,11 @@ def get_time_info() -> str:
         return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
-if __name__ == "__main__":
-    import sys
-
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    logger.info(f"Starting akshare-mcp on port {port} with {len(TOOL_DEFS)} APIs")
+def main():
+    """Main entry point for the MCP server."""
+    logger.info(f"Starting akshare-mcp with {len(TOOL_DEFS)} APIs, transport=stdio")
     mcp.run(transport="stdio")
+
+
+if __name__ == "__main__":
+    main()
