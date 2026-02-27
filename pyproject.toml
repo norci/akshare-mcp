@@ -1,0 +1,46 @@
+[project]
+name = "akshare-mcp"
+version = "1.0.0"
+description = "Complete MCP server for akshare - 100% API coverage"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Joseph", email = "joseph@example.com"}
+]
+keywords = ["mcp", "akshare", "finance", "stock", "mcp-server"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "akshare>=1.12.0",
+    "fastmcp>=0.1.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+]
+
+[project.scripts]
+akshare-mcp = "akshare_mcp.server:mcp"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/akshare_mcp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
