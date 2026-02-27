@@ -7,6 +7,5 @@ COPY src/ ./src/
 
 RUN uv pip install --system --index-url https://mirrors.aliyun.com/pypi/simple/ -e .
 
-EXPOSE 8000
-
-CMD ["python", "-m", "akshare_mcp", "8000", "http"]
+# No port needed for stdio transport
+CMD ["python", "-m", "akshare_mcp"]
