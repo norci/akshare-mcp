@@ -36,7 +36,8 @@ def get_akshare_tools() -> dict[str, dict]:
 
     for func_name in funcs:
         func = getattr(ak, func_name)
-        if not callable(func):
+        # Use inspect.isfunction to only include actual functions, not classes or other callables
+        if not inspect.isfunction(func):
             continue
 
         try:
@@ -105,14 +106,10 @@ def create_tool_func(func_name: str, original_func: Callable) -> Callable:
                 return result.to_json(orient="records", date_format="iso") or "[]"
             return json.dumps(result, default=str, ensure_ascii=False)
         except Exception as e:
-            return json.dumps(
-                {"error": str(e), "function": func_name}, ensure_ascii=False
-            )
+            return json.dumps({"error": str(e), "function": func_name}, ensure_ascii=False)
 
     tool_func.__name__ = func_name
-    tool_func.__doc__ = TOOL_DEFS.get(func_name, {}).get(
-        "full_doc", f"Call akshare.{func_name}"
-    )
+    tool_func.__doc__ = TOOL_DEFS.get(func_name, {}).get("full_doc", f"Call akshare.{func_name}")
 
     return tool_func
 
@@ -127,22 +124,19 @@ def register_all_tools():
             continue
 
         func = getattr(ak, func_name, None)
-        if not callable(func) or func_name.startswith("_"):
+        # Use inspect.isfunction to only include actual functions, not classes
+        if not inspect.isfunction(func) or func_name.startswith("_"):
             continue
 
         try:
             tool_def = TOOL_DEFS.get(func_name, {})
             params = tool_def.get("params", {})
 
-            if not params:
-                tool_func = create_tool_func(func_name, func)
-                tool = mcp.tool(name=func_name.replace("_", "__"))(tool_func)
-                GENERATED_TOOLS[func_name] = tool
-                registered += 1
-                continue
-
+            # Build parameter defaults and annotations for the tool function
             sig_params = {}
             annotations = {}
+            required_params = []
+
             for param_name, param_info in params.items():
                 type_hint = param_info.get("type", "string")
                 if type_hint == "integer":
@@ -158,11 +152,18 @@ def register_all_tools():
                 else:
                     type_hint = str
 
-                default = param_info.get("default", ...)
-                sig_params[param_name] = default
+                default = param_info.get("default")
+                is_required = param_info.get("required", False)
+
+                if default is None and is_required:
+                    # For required params, use ... as placeholder
+                    sig_params[param_name] = ...
+                    required_params.append(param_name)
+                else:
+                    sig_params[param_name] = default
                 annotations[param_name] = type_hint
 
-            def make_wrapper(fn, pnames, pdefaults):
+            def make_wrapper(fn, pnames):
                 def wrapper(**kwargs):
                     filtered = {k: v for k, v in kwargs.items() if k in pnames}
                     return create_tool_func(fn.__name__, fn)(**filtered)
@@ -171,8 +172,9 @@ def register_all_tools():
 
             tool_func = create_tool_func(func_name, func)
 
-            mcp_name = func_name.replace("_", "__")
-            tool = mcp.tool(name=mcp_name)(tool_func)
+            # Use original func_name as tool name, not with replaced underscores
+            # The MCP framework will handle parameter exposure automatically
+            tool = mcp.tool(name=func_name)(tool_func)
             GENERATED_TOOLS[func_name] = tool
             registered += 1
 
@@ -229,10 +231,7 @@ def search_apis(keyword: str = Field(description="Search keyword")) -> str:
     keyword_lower = keyword.lower()
 
     for name, info in TOOL_DEFS.items():
-        if (
-            keyword_lower in name.lower()
-            or keyword_lower in info.get("doc", "").lower()
-        ):
+        if keyword_lower in name.lower() or keyword_lower in info.get("doc", "").lower():
             results.append({"name": name, "description": info.get("doc", "")})
 
     return json.dumps(results[:20], ensure_ascii=False, indent=2)
