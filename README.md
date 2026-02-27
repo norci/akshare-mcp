@@ -47,10 +47,16 @@ pip install akshare-mcp
 
 ### Using Docker
 
+> Note: Docker image will be published after GitHub Actions is set up.
+
 ```bash
+# Build locally
+docker build -t akshare-mcp .
+
+# Or pull from GitHub Container Registry (after CI is configured)
 docker run -d -p 8000:8000 \
   --name akshare-mcp \
-  ghcr.io/josephx/akshare-mcp:latest
+  ghcr.io/norci/akshare-mcp:latest
 ```
 
 ## Usage
